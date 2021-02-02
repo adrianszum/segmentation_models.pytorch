@@ -2,7 +2,7 @@ from typing import Optional, Union, List
 from .decoder import UnetDecoder
 from ..encoders import get_encoder
 from ..base import SegmentationModel
-from ..base import SegmentationHead, ClassificationHead
+from ..base import SegmentationHead, ClassificationHead, ProjectHead
 
 
 class Unet(SegmentationModel):
@@ -59,6 +59,7 @@ class Unet(SegmentationModel):
         classes: int = 1,
         activation: Optional[Union[str, callable]] = None,
         aux_params: Optional[dict] = None,
+        proj_params: Optional[dict] = None,
     ):
         super().__init__()
 
@@ -91,6 +92,13 @@ class Unet(SegmentationModel):
             )
         else:
             self.classification_head = None
+
+        if proj_params is not None:
+            self.project_head = ProjectHead(
+                in_channels=self.encoder.out_channels[-1], **proj_params
+            )
+        else:
+            self.project_head = None
 
         self.name = "u-{}".format(encoder_name)
         self.initialize()
