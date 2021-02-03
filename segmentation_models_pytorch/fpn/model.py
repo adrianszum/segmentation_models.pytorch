@@ -92,7 +92,7 @@ class FPN(SegmentationModel):
 
         if proj_params is not None:
             self.project_head = ProjectHead(
-                in_channels=self.encoder.out_channels[-1], **proj_params
+                in_channels=self.decoder.out_channels, **proj_params
             )
         else:
             self.project_head = None

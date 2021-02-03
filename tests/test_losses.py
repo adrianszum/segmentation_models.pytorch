@@ -239,17 +239,21 @@ def test_pixel_contrast_loss(sampling, segmentation_aware, device):
     k_neg = 32
     k_anchors = 8
     batch_size = 4
-    embedding_dim = 32
+    embedding_dim = 128
     h = w = 128
+
+    if device == "cuda" and not torch.cuda.is_available():
+        print("CUDA not available")
+        return
 
     criterion = PixelContrastLoss(n_classes=2, memory_size=256, embedding_dim=embedding_dim, pixels_per_image=10,
                                   k_pos=k_pos, k_neg=k_neg, k_anchors=k_anchors, sampling=sampling,
-                                  segmentation_aware=segmentation_aware)
+                                  segmentation_aware=segmentation_aware).to(device)
 
     # test batch
     emb = torch.rand((batch_size, embedding_dim, h, w)).to(device)
-    y_true = torch.rand((batch_size, 1, h, w)).to(device) > 0.5
-    y_pred = torch.rand((batch_size, 1, h, w)).to(device) > 0.5
+    y_true = (torch.rand((batch_size, 1, h, w)).to(device) > 0.5).long()
+    y_pred = (torch.rand((batch_size, 1, h, w)).to(device) > 0.5).long()
     print("Random accuracy:", torch.mean((y_true == y_pred).float()))
 
     # Fill memory with random embeddings
