@@ -115,7 +115,7 @@ class PixelContrastLoss(_Loss):
         )
 
         loss = []
-        # allocating samples can consume a lot of memory but allows to calculate loss at once
+        # allocating samples can consume memory but allows to calculate loss for all anchors at once
         if self.allocate_samples:
             positive_samples = torch.zeros(
                 k_anchors, self.k_pos, self.embedding_dim
@@ -136,7 +136,10 @@ class PixelContrastLoss(_Loss):
 
             # calculate loss right away or populate sample tensor
             if self.allocate_samples:
-                positive_samples[i], negative_samples[i] = pos, neg
+                (
+                    positive_samples[i, : pos.size(0)],
+                    negative_samples[i, : neg.size(0)],
+                ) = (pos, neg)
             else:
                 loss.append(
                     self._info_nce(
@@ -169,7 +172,9 @@ class PixelContrastLoss(_Loss):
         pos_dot = torch.einsum("bd,bkd->bk", emb, pos) / self.temperature
         neg_dot = torch.einsum("bd,bkd->bk", emb, neg) / self.temperature
         # deduct maximal value for numerical stability of exponents
-        max_val = torch.max(torch.cat([pos_dot, neg_dot], dim=-1))
+        pos_max_val = torch.max(pos_dot)
+        neg_max_val = torch.max(neg_dot)
+        max_val = torch.max(torch.stack([pos_max_val, neg_max_val]))
 
         numerator = torch.exp(pos_dot - max_val)
         denominator = (
