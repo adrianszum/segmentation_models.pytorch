@@ -1,5 +1,6 @@
 import torch
-from torch import nn, Tensor as T
+from torch import Tensor as T
+from torch.autograd import Variable
 from torch.nn.modules.loss import _Loss
 from typing import Optional, Tuple
 from einops import rearrange, reduce
@@ -9,7 +10,7 @@ class PixelContrastLoss(_Loss):
     def __init__(self, n_classes: int, memory_size: int, embedding_dim: int,
                  pixels_per_image: int = 10, k_pos: int = 1024, k_neg: int = 2048, k_anchors: int = 1024,
                  temperature: float = 0.1,
-                 sampling: str = "harder", segmentation_aware: bool = True,
+                 sampling: str = "harder", segmentation_aware: bool = True, allocate_samples: bool = False,
                  reduction: str = "mean"):
         super(PixelContrastLoss, self).__init__(reduction=reduction)
 
@@ -25,10 +26,17 @@ class PixelContrastLoss(_Loss):
         self.temperature = temperature
         self.sampling = sampling
         self.segmentation_aware = segmentation_aware
+        self.allocate_samples = allocate_samples
 
         # Memory bank
-        memory_bank = torch.zeros((n_classes, memory_size, pixels_per_image + 1, embedding_dim), dtype=torch.float32)
-        self.register_buffer('memory_bank', memory_bank)
+        self.register_buffer(
+            "memory_bank",
+            torch.zeros((n_classes,
+                         memory_size,
+                         pixels_per_image + 1,
+                         embedding_dim),
+                        dtype=torch.float32),
+        )
 
         # Flags to maintain memory integrity
         self.memory_full = False
@@ -47,8 +55,8 @@ class PixelContrastLoss(_Loss):
                 # skip the class if there are just a few pixels
                 if class_emb.size(0) > self.pixels_per_image:
                     rand_idx = torch.randperm(class_emb.size(0))[:self.pixels_per_image]
-                    self.memory_bank[class_idx, memory_idx, 0] = class_emb.mean(dim=0)
-                    self.memory_bank[class_idx, memory_idx, 1:] = class_emb[rand_idx]
+                    self.memory_bank[class_idx, memory_idx, 0] = class_emb.mean(dim=0).detach()
+                    self.memory_bank[class_idx, memory_idx, 1:] = class_emb[rand_idx].detach()
 
             # increment counter and check if we did a full round on memory bank
             self.counter += 1
@@ -56,17 +64,37 @@ class PixelContrastLoss(_Loss):
                 self.memory_full = True
 
         anchors, classes = self._sample_anchors(emb=emb, k=batch_size * self.k_anchors, y_true=y_true, y_pred=y_pred)
-        pos = torch.zeros(batch_size * self.k_anchors, self.k_pos, self.embedding_dim).to(emb.device)
-        neg = torch.zeros(batch_size * self.k_anchors, self.k_neg, self.embedding_dim).to(emb.device)
+
+        loss = []
+        # allocating samples can consume a lot of memory but allows to calculate loss at once
+        if self.allocate_samples:
+            positive_samples = torch.zeros(batch_size * self.k_anchors, self.k_pos, self.embedding_dim).to(emb.device)
+            negative_samples = torch.zeros(batch_size * self.k_anchors, self.k_neg, self.embedding_dim).to(emb.device)
+        else:
+            positive_samples = negative_samples = None
+
         for i, (anchor, class_idx) in enumerate(zip(anchors, classes.long())):
             try:
-                pos[i], neg[i] = self._sample_pos_neg(emb=anchor, class_idx=class_idx)
+                pos, neg = self._sample_pos_neg(emb=anchor, class_idx=class_idx)
             except RuntimeError:
                 print(classes[classes != 0])
                 raise RuntimeError
 
-        loss = self._info_nce(emb=anchors, pos=pos, neg=neg)
-        return loss.mean()
+            # Calculate loss right away or populate sample tensor
+            if self.allocate_samples:
+                positive_samples[i], negative_samples[i] = pos, neg
+            else:
+                loss.append(self._info_nce(emb=anchor[None, ...],
+                                           pos=pos[None, ...],
+                                           neg=neg[None, ...]).mean())
+
+        # Calculate loss over collected samples or average results of online calculations
+        if self.allocate_samples:
+            loss = self._info_nce(emb=anchors, pos=positive_samples, neg=negative_samples).mean()
+        else:
+            loss = torch.stack(loss).mean()
+
+        return loss
 
     def _info_nce(self, emb: T, pos: T, neg: T):
         # b - batch size, d - embedding dim, k - examples
@@ -99,7 +127,8 @@ class PixelContrastLoss(_Loss):
         dst = torch.norm(memory - embedding, dim=1, p=None)
         # sample nearest negatives or farthest positives
         try:
-            knn = dst.topk(top_k, largest=positive)
+            # sample either top k or full available memory
+            knn = dst.topk(min(top_k, memory.size(0)), largest=positive)
         except RuntimeError:
             print(f"\nFailed to sample top {top_k} from dst={dst.size()}, "
                   f"memory={memory.size()}, class_idx={class_idx}, positive={positive}")
@@ -130,7 +159,7 @@ class PixelContrastLoss(_Loss):
         cls = torch.arange(self.n_classes).to(self.memory_bank.device)
         idx = (cls == class_idx) if positive else (cls != class_idx)
         # get embeddings from the memory and flatten
-        return self.memory_bank[idx].view(-1, self.embedding_dim)
+        return self.memory_bank[idx, :self.counter].view(-1, self.embedding_dim)
 
     def _sample_random_one(self, class_idx: int, top_k: int, positive: bool):
         memory = self._get_memory(class_idx=class_idx, positive=positive)
@@ -174,8 +203,8 @@ class PixelContrastLoss(_Loss):
                                         k_neg=max(ten_pct, k_neg))
 
         # randomly sample positives and negatives
-        pos_idx = torch.randperm(max(ten_pct, k_pos))[:k_pos]
-        neg_idx = torch.randperm(max(ten_pct, k_neg))[:k_neg]
+        pos_idx = torch.randperm(min(pos.size(0), max(ten_pct, k_pos)))[:k_pos]
+        neg_idx = torch.randperm(min(neg.size(0), max(ten_pct, k_neg)))[:k_neg]
 
         return pos[pos_idx], neg[neg_idx]
 

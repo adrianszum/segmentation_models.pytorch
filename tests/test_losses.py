@@ -254,7 +254,7 @@ def test_pixel_contrast_loss(sampling, segmentation_aware, device):
     emb = torch.rand((batch_size, embedding_dim, h, w)).to(device)
     y_true = (torch.rand((batch_size, 1, h, w)).to(device) > 0.5).long()
     y_pred = (torch.rand((batch_size, 1, h, w)).to(device) > 0.5).long()
-    print("Random accuracy:", torch.mean((y_true == y_pred).float()))
+    print("\nRandom accuracy:", torch.mean((y_true == y_pred).float()))
 
     # Fill memory with random embeddings
     criterion.memory_bank = torch.rand_like(criterion.memory_bank)
