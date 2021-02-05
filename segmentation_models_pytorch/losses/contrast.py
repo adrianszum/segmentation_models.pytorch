@@ -24,7 +24,9 @@ class PixelContrastLoss(_Loss):
         temperature: float = 0.1,
         sampling: str = "harder",
         segmentation_aware: bool = True,
-        allocate_samples: bool = False,
+        hard_anchors_proportion: float = 0.5,
+        region_anchors: bool = True,
+        allocate_samples: bool = True,
         reduction: str = "mean",
     ):
         """
@@ -33,13 +35,16 @@ class PixelContrastLoss(_Loss):
             n_classes: int, number of classes in the dataset
             memory_size: int, size of the memory bank (usually equals to dataset size)
             embedding_dim: int, length of embedding vector
-            pixels_per_image: int, pixel embeddings to sample randomly from each training image to the bank
+            pixels_per_image: int, pixel embeddings to sample randomly from each training image to the bank;
+                              if 0, then only region memory will be used
             k_pos: int, k positive samples
             k_neg: int, k negative samples
             k_anchors: int, k anchors to sample from each training image for the loss computation
             temperature: float, temperature (tau) parameter of InfoNCE loss
             sampling: str {"random", "harder", "hardest"}, see _sample_pos_neg() for details
             segmentation_aware: bool, if sample from mislabeled pixels, see _sample_anchors() for details
+            hard_anchors_proportion: float [0, 1], proportion of mislabeled pixels in anchor sampling
+            region_anchors: bool, if sample C anchors as average embeddings from each class
             allocate_samples: bool, if allocate space for samples and calculate
                               loss for the batch (consumes memory but faster)
             reduction: loss reduction in batch, default "mean"
@@ -47,6 +52,7 @@ class PixelContrastLoss(_Loss):
         super(PixelContrastLoss, self).__init__(reduction=reduction)
 
         assert sampling in ("harder", "hardest", "random")
+        assert 0 < hard_anchors_proportion < 1
 
         self.n_classes = n_classes
         self.memory_size = memory_size
@@ -58,6 +64,8 @@ class PixelContrastLoss(_Loss):
         self.temperature = temperature
         self.sampling = sampling
         self.segmentation_aware = segmentation_aware
+        self.hard_anchors_proportion = hard_anchors_proportion
+        self.region_anchors = region_anchors
         self.allocate_samples = allocate_samples
 
         # memory bank
@@ -95,11 +103,13 @@ class PixelContrastLoss(_Loss):
                 # get embeddings from the current class
                 mask = torch.where(y[0] == c)
                 emb_c = emb_i[:, mask[0], mask[1]].T
-                # skip the class if there are just a few pixels
-                if emb_c.size(0) > self.pixels_per_image:
-                    # add mean region (class) embedding
-                    self.memory_bank[c, m, 0] = emb_c.mean(dim=0).detach()
-                    # add random pixel embeddings to pixel memory
+                # skip the class if there are just no pixels
+                if emb_c.size(0) == 0:
+                    continue
+                # add mean region (class) embedding
+                self.memory_bank[c, m, 0] = emb_c.mean(dim=0).detach()
+                # add random pixel embeddings to pixel memory
+                if 0 < self.pixels_per_image < emb_c.size(0):
                     rand_idx = torch.randperm(emb_c.size(0))[: self.pixels_per_image]
                     self.memory_bank[c, m, 1:] = emb_c[rand_idx].detach()
 
@@ -110,6 +120,8 @@ class PixelContrastLoss(_Loss):
 
         # sample k anchors from each batch image (exactly k from image not guaranteed)
         k_anchors = batch_size * self.k_anchors
+        # if self.region_anchors:
+        #     k_anchors -= batch_size * self.n_classes
         anchors, classes = self._sample_anchors(
             emb=emb, k=k_anchors, y_true=y_true, y_pred=y_pred
         )
@@ -117,12 +129,8 @@ class PixelContrastLoss(_Loss):
         loss = []
         # allocating samples can consume memory but allows to calculate loss for all anchors at once
         if self.allocate_samples:
-            positive_samples = torch.zeros(
-                k_anchors, self.k_pos, self.embedding_dim
-            ).to(emb.device)
-            negative_samples = torch.zeros(
-                k_anchors, self.k_neg, self.embedding_dim
-            ).to(emb.device)
+            positive_samples = []
+            negative_samples = []
         else:
             positive_samples = negative_samples = None
 
@@ -136,10 +144,8 @@ class PixelContrastLoss(_Loss):
 
             # calculate loss right away or populate sample tensor
             if self.allocate_samples:
-                (
-                    positive_samples[i, : pos.size(0)],
-                    negative_samples[i, : neg.size(0)],
-                ) = (pos, neg)
+                positive_samples.append(pos)
+                negative_samples.append(neg)
             else:
                 loss.append(
                     self._info_nce(
@@ -150,7 +156,9 @@ class PixelContrastLoss(_Loss):
         # calculate loss over collected samples or average results of online calculations
         if self.allocate_samples:
             loss = self._info_nce(
-                emb=anchors, pos=positive_samples, neg=negative_samples
+                emb=anchors,
+                pos=torch.stack(positive_samples, dim=0),
+                neg=torch.stack(negative_samples, dim=0)
             ).mean()
         else:
             loss = torch.stack(loss).mean()
@@ -215,14 +223,42 @@ class PixelContrastLoss(_Loss):
             y_pred_flat = rearrange(y_true, "b d h w -> (b h w) d")
             idx_hard = torch.where(y_true_flat != y_pred_flat)[0]
             # there can be fewer hard indices than k/2, so we take min
-            # TODO resampling could occur here, 0.5 can be parametrized
-            k_hard = int(min(k * 0.5, len(idx_hard)))
+            # TODO resampling could occur here
+            k_hard = int(min(k * self.hard_anchors_proportion, len(idx_hard)))
             if k_hard > 0:
                 idx[:k_hard] = idx_hard[torch.randperm(len(idx_hard))][:k_hard]
 
         anchors = emb_flat[idx]
         classes = y_true_flat[idx]
 
+        # get average embeddings of class
+        if self.region_anchors:
+            emb_flat = rearrange(emb, "b d h w -> b (h w) d")
+            y_true_flat = rearrange(y_true, "b d h w -> b (h w) d")
+
+            region_anchors = []
+            region_classes = []
+            for c in range(self.n_classes):
+                # get embeddings from the current class
+                for emb_c, y in zip(emb_flat, y_true_flat):
+                    mask = torch.where(y == c)[0]
+                    emb_c = emb_c[mask, :]
+                    if emb_c.size(0) > 0:
+                        region_anchors.append(emb_c.mean(dim=0, keepdim=True))
+                        region_classes.append(torch.tensor(c))
+
+            region_anchors = torch.cat(region_anchors, dim=0)
+            region_classes = torch.stack(region_classes, dim=0)[..., None].to(emb.device)
+
+            try:
+                anchors = torch.cat([anchors, region_anchors], dim=0)
+                classes = torch.cat([classes, region_classes], dim=0)
+            except RuntimeError:
+                print(f"anchors: {anchors.shape}, {region_anchors.shape};"
+                      f"classes: {classes.shape}, {region_classes.shape}")
+                raise RuntimeError
+
+        assert anchors.size(0) == classes.size(0)
         return anchors, classes
 
     def _sample_from_memory(self, class_idx: int, positive: bool) -> T:

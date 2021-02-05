@@ -240,7 +240,7 @@ def test_pixel_contrast_loss(sampling, segmentation_aware, device):
     k_anchors = 8
     batch_size = 4
     embedding_dim = 128
-    h = w = 128
+    h = w = 256
 
     if device == "cuda" and not torch.cuda.is_available():
         print("CUDA not available")
