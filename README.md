@@ -189,6 +189,25 @@ The following is a list of supported encoders in the SMP. Select the appropriate
 </details>
 
 <details>
+<summary style="margin-left: 25px;">NFNet</summary>
+<div style="margin-left: 25px;">
+
+|Encoder                         |Weights                         |Params, M                       |
+|--------------------------------|:------------------------------:|:------------------------------:|
+|timm-nf_regnet_b1               |imagenet                        |9.3M                            |
+|timm-nf_resnet50                |imagenet                        |23.5M                           |
+|timm-dm_nfnet_f0                |imagenet                        |71.5M                           |
+|timm-dm_nfnet_f1                |imagenet                        |132.6M                          |
+|timm-dm_nfnet_f2                |imagenet                        |193.8M                          |
+|timm-dm_nfnet_f3                |imagenet                        |254.9M                          |
+|timm-dm_nfnet_f4                |imagenet                        |316.1M                          |
+|timm-dm_nfnet_f5                |imagenet                        |377.2M                          |
+|timm-dm_nfnet_f6                |imagenet                        |438.5M                          |
+
+</div>
+</details>
+
+<details>
 <summary style="margin-left: 25px;">SE-Net</summary>
 <div style="margin-left: 25px;">
 
