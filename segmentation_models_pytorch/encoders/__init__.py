@@ -17,6 +17,7 @@ from .timm_res2net import timm_res2net_encoders
 from .timm_regnet import timm_regnet_encoders
 from .timm_sknet import timm_sknet_encoders
 from .timm_nfnet import timm_nfnet_encoders
+from .timm_repvgg_gernet import timm_repvgg_gernet_encoders
 from ._preprocessing import preprocess_input
 
 encoders = {}
@@ -36,6 +37,7 @@ encoders.update(timm_res2net_encoders)
 encoders.update(timm_regnet_encoders)
 encoders.update(timm_sknet_encoders)
 encoders.update(timm_nfnet_encoders)
+encoders.update(timm_repvgg_gernet_encoders)
 
 
 def get_encoder(name, in_channels=3, depth=5, weights=None):

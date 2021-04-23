@@ -208,6 +208,19 @@ The following is a list of supported encoders in the SMP. Select the appropriate
 </details>
 
 <details>
+<summary style="margin-left: 25px;">GENet</summary>
+<div style="margin-left: 25px;">
+
+|Encoder          |Weights                         |Params, M                       | ImageNet top-1 acc |
+|-----------------|:------------------------------:|:------------------------------:|:------------------:|
+|timm-gernet_s    |imagenet                        |6.2M                            |75.7                | 
+|timm-gernet_m    |imagenet                        |18.6M                           |80.0                |
+|timm-gernet_l    |imagenet                        |28.5M                           |81.3                |
+
+</div>
+</details>
+
+<details>
 <summary style="margin-left: 25px;">SE-Net</summary>
 <div style="margin-left: 25px;">
 
@@ -341,6 +354,22 @@ The following is a list of supported encoders in the SMP. Select the appropriate
 </div>
 </details>
 
+<details>
+<summary style="margin-left: 25px;">RepVGG</summary>
+<div style="margin-left: 25px;">
+
+|Encoder           |Weights     |Params, M        | ImageNet top-1 acc |
+|------------------|:----------:|:---------------:|:------------------:|
+|timm-repvgg_b0    |imagenet    |14.3M            |75.14               |
+|timm-repvgg_a2    |imagenet    |25.5M            |76.48               |
+|timm-repvgg_b1g4  |imagenet    |36.1M            |77.58               |
+|timm-repvgg_b1    |imagenet    |51.8M            |78.37               |
+|timm-repvgg_b2g4  |imagenet    |55.7M            |78.50               |
+|timm-repvgg_b3g4  |imagenet    |75.6M            |80.21               |
+|timm-repvgg_b3    |imagenet    |111M             |80.52               |
+
+</div>
+</details>
 
 \* `ssl`, `swsl` - semi-supervised and weakly-supervised learning on ImageNet ([repo](https://github.com/facebookresearch/semi-supervised-ImageNet1K-models)).
 

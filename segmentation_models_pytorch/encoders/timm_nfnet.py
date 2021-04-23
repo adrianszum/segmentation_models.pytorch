@@ -76,7 +76,7 @@ timm_nfnet_encoders = {
             }
         } if cfg['url'] else {},
         'params': {
-            # regnets have cgf.channels that do not match the actual numbers and empty cfg.stem_chs
+            # regnets have cfg.channels that do not match the actual numbers and empty cfg.stem_chs
             'out_channels': nfnet_models_out_channels[model] if 'regnet' in model
             else (3, model_cfgs[model].stem_chs) + model_cfgs[model].channels,
             'cfg': model_cfgs[model]
