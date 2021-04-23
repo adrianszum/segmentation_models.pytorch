@@ -61,6 +61,7 @@ nfnet_models_out_channels = {
     'dm_nfnet_f6': (3, 128, 256, 512, 1536, 1536),
 }
 
+
 timm_nfnet_encoders = {
     f"timm-{model}": {
         'encoder': NFNetEncoder,
