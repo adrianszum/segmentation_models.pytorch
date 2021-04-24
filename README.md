@@ -305,6 +305,7 @@ The following is a list of supported encoders in the SMP. Select the appropriate
 |timm-efficientnet-lite2         |imagenet                        |6M                              |
 |timm-efficientnet-lite3         |imagenet                        |8M                             |
 |timm-efficientnet-lite4         |imagenet                        |13M                             |
+|timm-efficientnet_v2s         |imagenet                        |22M                             |
 
 </div>
 </details>

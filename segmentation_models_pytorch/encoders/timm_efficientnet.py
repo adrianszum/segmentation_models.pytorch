@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from timm.models.efficientnet import EfficientNet
-from timm.models.efficientnet import decode_arch_def, round_channels, default_cfgs
+from timm.models.efficientnet import decode_arch_def, round_channels, default_cfgs, resolve_bn_args, resolve_act_layer
 from timm.models.layers.activations import Swish
 
 from ._base import EncoderMixin
@@ -49,6 +49,7 @@ def get_efficientnet_kwargs(channel_multiplier=1.0, depth_multiplier=1.0, drop_r
     )
     return model_kwargs
 
+
 def gen_efficientnet_lite_kwargs(channel_multiplier=1.0, depth_multiplier=1.0, drop_rate=0.2):
     """Creates an EfficientNet-Lite model.
 
@@ -88,6 +89,42 @@ def gen_efficientnet_lite_kwargs(channel_multiplier=1.0, depth_multiplier=1.0, d
         drop_path_rate=0.2,
     )
     return model_kwargs
+
+
+def get_efficientnet_v2s_kwargs(channel_multiplier=1.0, depth_multiplier=1.0, **kwargs):
+    """ Creates an EfficientNet-V2s model
+
+    NOTE: this is a preliminary definition based on paper, awaiting official code release for details
+    and weights
+
+    Ref impl:
+    Paper: `EfficientNetV2: Smaller Models and Faster Training` - https://arxiv.org/abs/2104.00298
+    """
+
+    arch_def = [
+        # FIXME it's not clear if the FusedMBConv layers have SE enabled for the Small variant,
+        # Table 4 suggests no. 23.94M params w/o, 23.98 with which is closer to 24M.
+        # ['er_r2_k3_s1_e1_c24_se0.25'],
+        # ['er_r4_k3_s2_e4_c48_se0.25'],
+        # ['er_r4_k3_s2_e4_c64_se0.25'],
+        ['er_r2_k3_s1_e1_c24'],
+        ['er_r4_k3_s2_e4_c48'],
+        ['er_r4_k3_s2_e4_c64'],
+        ['ir_r6_k3_s2_e4_c128_se0.25'],
+        ['ir_r9_k3_s1_e6_c160_se0.25'],
+        ['ir_r15_k3_s2_e6_c272_se0.25'],
+    ]
+    model_kwargs = dict(
+        block_args=decode_arch_def(arch_def, depth_multiplier),
+        num_features=round_channels(1792, channel_multiplier, 8, None),
+        stem_size=24,
+        channel_multiplier=channel_multiplier,
+        norm_kwargs=resolve_bn_args(kwargs),
+        act_layer=resolve_act_layer(kwargs, 'silu'),  # FIXME this is an assumption, paper does not mention
+        **kwargs,
+    )
+    return model_kwargs
+
 
 class EfficientNetBaseEncoder(EfficientNet, EncoderMixin):
 
@@ -138,6 +175,13 @@ class EfficientNetLiteEncoder(EfficientNetBaseEncoder):
 
     def __init__(self, stage_idxs, out_channels, depth=5, channel_multiplier=1.0, depth_multiplier=1.0, drop_rate=0.2):
         kwargs = gen_efficientnet_lite_kwargs(channel_multiplier, depth_multiplier, drop_rate)
+        super().__init__(stage_idxs, out_channels, depth, **kwargs)
+
+
+class EfficientNetV2Encoder(EfficientNetBaseEncoder):
+
+    def __init__(self, stage_idxs, out_channels, depth=5, channel_multiplier=1.0, depth_multiplier=1.0):
+        kwargs = get_efficientnet_v2s_kwargs(channel_multiplier, depth_multiplier)
         super().__init__(stage_idxs, out_channels, depth, **kwargs)
 
 
@@ -377,6 +421,19 @@ timm_efficientnet_encoders = {
             "channel_multiplier": 1.4,
             "depth_multiplier": 1.8,
             "drop_rate": 0.4,
+        },
+    },
+
+    "timm-efficientnet_v2s": {
+        "encoder": EfficientNetV2Encoder,
+        "pretrained_settings": {
+            "imagenet": prepare_settings(default_cfgs["efficientnet_v2s"]),
+        },
+        "params": {
+            "out_channels": (3, 24, 48, 64, 160, 272),
+            "stage_idxs": (2, 3, 5),
+            "channel_multiplier": 1.0,
+            "depth_multiplier": 1.0,
         },
     },
 }
