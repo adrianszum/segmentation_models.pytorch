@@ -372,6 +372,26 @@ The following is a list of supported encoders in the SMP. Select the appropriate
 </div>
 </details>
 
+<details>
+<summary style="margin-left: 25px;">Swin</summary>
+<div style="margin-left: 25px;">
+
+|Encoder                                      |Weights     |Params, M       | ImageNet top-1 acc |
+|---------------------------------------------|:----------:|:--------------:|:------------------:|
+|timm-swin_tiny_patch4_window7_224            |imagenet    |28M             |81.2                |
+|timm-swin_small_patch4_window7_224           |imagenet    |50M             |83.2                |
+|timm-swin_base_patch4_window7_224            |imagenet    |88M             |83.5                |
+|timm-swin_base_patch4_window12_384           |imagenet    |88M             |84.5                |
+|timm-swin_base_patch4_window7_224_in22k      |imagenet    |88M             |85.2                |
+|timm-swin_base_patch4_window12_384_in22k     |imagenet    |88M             |86.4                |
+|timm-swin_large_patch4_window12_384          |imagenet    |197M            |                    |
+|timm-swin_large_patch4_window7_224           |imagenet    |197M            |                    |
+|timm-swin_large_patch4_window7_224_in22k     |imagenet    |197M            |86.3                |
+|timm-swin_large_patch4_window12_384_in22k    |imagenet    |197M            |87.3                |
+
+</div>
+</details>
+
 \* `ssl`, `swsl` - semi-supervised and weakly-supervised learning on ImageNet ([repo](https://github.com/facebookresearch/semi-supervised-ImageNet1K-models)).
 
 
