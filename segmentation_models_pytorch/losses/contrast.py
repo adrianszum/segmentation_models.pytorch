@@ -20,7 +20,7 @@ class PixelContrastLoss(_Loss):
         pixels_per_image: int = 10,
         k_pos: int = 1024,
         k_neg: int = 2048,
-        k_anchors: int = 8,
+        k_anchors: int = 50,
         temperature: float = 0.1,
         sampling: str = "harder",
         segmentation_aware: bool = True,

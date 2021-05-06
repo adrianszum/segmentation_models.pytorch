@@ -2,7 +2,7 @@ from typing import Optional, Union, List
 from .decoder import MAnetDecoder
 from ..encoders import get_encoder
 from ..base import SegmentationModel
-from ..base import SegmentationHead, ClassificationHead
+from ..base import SegmentationHead, ClassificationHead, ProjectHead
 
 
 class MAnet(SegmentationModel):
@@ -59,7 +59,8 @@ class MAnet(SegmentationModel):
         in_channels: int = 3,
         classes: int = 1,
         activation: Optional[Union[str, callable]] = None,
-        aux_params: Optional[dict] = None
+        aux_params: Optional[dict] = None,
+        proj_params: Optional[dict] = None,
     ):
         super().__init__()
 
@@ -91,6 +92,13 @@ class MAnet(SegmentationModel):
             )
         else:
             self.classification_head = None
+
+        if proj_params is not None:
+            self.project_head = ProjectHead(
+                in_channels=decoder_channels[-1], **proj_params
+            )
+        else:
+            self.project_head = None
 
         self.name = "manet-{}".format(encoder_name)
         self.initialize()
