@@ -1,6 +1,6 @@
 from typing import Optional, Union
 from .decoder import FPNDecoder
-from ..base import SegmentationModel, SegmentationHead, ClassificationHead
+from ..base import SegmentationModel, SegmentationHead, ClassificationHead, ProjectHead
 from ..encoders import get_encoder
 
 
@@ -55,6 +55,7 @@ class FPN(SegmentationModel):
         activation: Optional[str] = None,
         upsampling: int = 4,
         aux_params: Optional[dict] = None,
+        proj_params: Optional[dict] = None,
     ):
         super().__init__()
 
@@ -88,6 +89,15 @@ class FPN(SegmentationModel):
             )
         else:
             self.classification_head = None
+
+        if proj_params is not None:
+            self.project_head = ProjectHead(
+                in_channels=self.decoder.out_channels,
+                upsampling=upsampling,
+                **proj_params
+            )
+        else:
+            self.project_head = None
 
         self.name = "fpn-{}".format(encoder_name)
         self.initialize()

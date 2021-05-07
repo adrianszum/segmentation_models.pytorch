@@ -9,6 +9,8 @@ class SegmentationModel(torch.nn.Module):
         init.initialize_head(self.segmentation_head)
         if self.classification_head is not None:
             init.initialize_head(self.classification_head)
+        if hasattr(self, "project_head") and self.project_head is not None:
+            init.initialize_head(self.project_head)
 
     def forward(self, x):
         """Sequentially pass `x` trough model`s encoder, decoder and heads"""
@@ -17,11 +19,19 @@ class SegmentationModel(torch.nn.Module):
 
         masks = self.segmentation_head(decoder_output)
 
+        if self.classification_head is None and (not hasattr(self, "project_head") or self.project_head is None):
+            return masks
+
+        output = [masks]
         if self.classification_head is not None:
             labels = self.classification_head(features[-1])
-            return masks, labels
+            output.append(labels)
 
-        return masks
+        if hasattr(self, "project_head") and self.project_head is not None:
+            embeddings = self.project_head(decoder_output)
+            output.append(embeddings)
+
+        return output
 
     def predict(self, x):
         """Inference method. Switch model to `eval` mode, call `.forward(x)` with `torch.no_grad()`

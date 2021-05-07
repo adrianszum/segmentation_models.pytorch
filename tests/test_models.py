@@ -94,6 +94,18 @@ def test_aux_output(model_class):
     assert label.size() == label_size
 
 
+@pytest.mark.parametrize("model_class", [smp.PAN, smp.FPN, smp.PSPNet, smp.Linknet, smp.Unet, smp.UnetPlusPlus, smp.MAnet])
+def test_proj_output(model_class):
+    num_emb = 128
+    model = model_class(
+        DEFAULT_ENCODER, encoder_weights=None, proj_params=dict(out_channels=num_emb)
+    )
+    sample = get_sample(model_class)
+    proj_size = (sample.shape[0], num_emb) + sample.shape[2:]
+    mask, proj = model(sample)
+    assert proj.size() == proj_size
+
+
 @pytest.mark.parametrize("upsampling", [2, 4, 8])
 @pytest.mark.parametrize("model_class", [smp.FPN, smp.PSPNet])
 def test_upsample(model_class, upsampling):

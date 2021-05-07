@@ -2,7 +2,7 @@ import pytest
 import torch
 import segmentation_models_pytorch as smp
 import segmentation_models_pytorch.losses._functional as F
-from segmentation_models_pytorch.losses import DiceLoss, JaccardLoss, SoftBCEWithLogitsLoss, SoftCrossEntropyLoss
+from segmentation_models_pytorch.losses import DiceLoss, JaccardLoss, SoftBCEWithLogitsLoss, SoftCrossEntropyLoss, PixelContrastLoss
 
 
 def test_focal_loss_with_logits():
@@ -221,4 +221,42 @@ def test_soft_bce_loss():
     y_true = torch.tensor([0, 1, -100, 1, 0]).long()
 
     loss = criterion(y_pred, y_true)
+    print(loss)
+
+
+@pytest.mark.parametrize(
+    ["sampling", "segmentation_aware", "device"],
+    [
+        ["random", False, "cpu"],
+        ["hardest", False, "cpu"],
+        ["harder", False, "cpu"],
+        ["harder", True, "cpu"],
+        ["harder", True, "cuda"],
+    ])
+@torch.no_grad()
+def test_pixel_contrast_loss(sampling, segmentation_aware, device):
+    k_pos = 16
+    k_neg = 32
+    k_anchors = 8
+    batch_size = 4
+    embedding_dim = 128
+    h = w = 256
+
+    if device == "cuda" and not torch.cuda.is_available():
+        print("CUDA not available")
+        return
+
+    criterion = PixelContrastLoss(n_classes=2, memory_size=256, embedding_dim=embedding_dim, pixels_per_image=10,
+                                  k_pos=k_pos, k_neg=k_neg, k_anchors=k_anchors, sampling=sampling,
+                                  segmentation_aware=segmentation_aware).to(device)
+
+    # test batch
+    emb = torch.rand((batch_size, embedding_dim, h, w)).to(device)
+    y_true = (torch.rand((batch_size, 1, h, w)).to(device) > 0.5).long()
+    y_pred = (torch.rand((batch_size, 1, h, w)).to(device) > 0.5).long()
+    print("\nRandom accuracy:", torch.mean((y_true == y_pred).float()))
+
+    # Fill memory with random embeddings
+    criterion.memory_bank = torch.rand_like(criterion.memory_bank)
+    loss = criterion(emb, y_true, y_pred)
     print(loss)
