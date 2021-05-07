@@ -2,7 +2,7 @@ from typing import Optional, Union
 from .decoder import PANDecoder
 from ..encoders import get_encoder
 from ..base import SegmentationModel
-from ..base import SegmentationHead, ClassificationHead
+from ..base import SegmentationHead, ClassificationHead, ProjectHead
 
 
 class PAN(SegmentationModel):
@@ -51,7 +51,8 @@ class PAN(SegmentationModel):
             classes: int = 1,
             activation: Optional[Union[str, callable]] = None,
             upsampling: int = 4,
-            aux_params: Optional[dict] = None
+            aux_params: Optional[dict] = None,
+            proj_params: Optional[dict] = None,
     ):
         super().__init__()
 
@@ -87,6 +88,15 @@ class PAN(SegmentationModel):
             )
         else:
             self.classification_head = None
+
+        if proj_params is not None:
+            self.project_head = ProjectHead(
+                in_channels=self.decoder.out_channels,
+                upsampling=upsampling,
+                **proj_params
+            )
+        else:
+            self.project_head = None
 
         self.name = "pan-{}".format(encoder_name)
         self.initialize()

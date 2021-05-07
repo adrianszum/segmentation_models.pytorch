@@ -19,7 +19,7 @@ class SegmentationModel(torch.nn.Module):
 
         masks = self.segmentation_head(decoder_output)
 
-        if self.classification_head is None and self.project_head is None:
+        if self.classification_head is None and (not hasattr(self, "project_head") or self.project_head is None):
             return masks
 
         output = [masks]

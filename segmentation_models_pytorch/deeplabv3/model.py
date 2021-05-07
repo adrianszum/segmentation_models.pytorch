@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from typing import Optional
 from .decoder import DeepLabV3Decoder, DeepLabV3PlusDecoder
-from ..base import SegmentationModel, SegmentationHead, ClassificationHead
+from ..base import SegmentationModel, SegmentationHead, ClassificationHead, ProjectHead
 from ..encoders import get_encoder
 
 
@@ -50,6 +50,7 @@ class DeepLabV3(SegmentationModel):
             activation: Optional[str] = None,
             upsampling: int = 8,
             aux_params: Optional[dict] = None,
+            proj_params: Optional[dict] = None,
     ):
         super().__init__()
 
@@ -83,6 +84,15 @@ class DeepLabV3(SegmentationModel):
             )
         else:
             self.classification_head = None
+
+        if proj_params is not None:
+            self.project_head = ProjectHead(
+                in_channels=self.decoder.out_channels,
+                upsampling=upsampling,
+                **proj_params
+            )
+        else:
+            self.project_head = None
 
 
 class DeepLabV3Plus(SegmentationModel):
@@ -133,6 +143,7 @@ class DeepLabV3Plus(SegmentationModel):
             activation: Optional[str] = None,
             upsampling: int = 4,
             aux_params: Optional[dict] = None,
+            proj_params: Optional[dict] = None,
     ):
         super().__init__()
 
@@ -180,3 +191,12 @@ class DeepLabV3Plus(SegmentationModel):
             )
         else:
             self.classification_head = None
+
+        if proj_params is not None:
+            self.project_head = ProjectHead(
+                in_channels=self.decoder.out_channels,
+                upsampling=upsampling,
+                **proj_params
+            )
+        else:
+            self.project_head = None

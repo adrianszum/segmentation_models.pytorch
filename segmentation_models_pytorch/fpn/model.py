@@ -90,13 +90,14 @@ class FPN(SegmentationModel):
         else:
             self.classification_head = None
 
-        # TODO upsampling here and in other encoders
-        # if proj_params is not None:
-        #     self.project_head = ProjectHead(
-        #         in_channels=self.decoder.out_channels, **proj_params
-        #     )
-        # else:
-        #     self.project_head = None
+        if proj_params is not None:
+            self.project_head = ProjectHead(
+                in_channels=self.decoder.out_channels,
+                upsampling=upsampling,
+                **proj_params
+            )
+        else:
+            self.project_head = None
 
         self.name = "fpn-{}".format(encoder_name)
         self.initialize()

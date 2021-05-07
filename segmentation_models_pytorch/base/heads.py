@@ -34,11 +34,13 @@ class ProjectHead(nn.Sequential):
     Provides high-dimensional L2-normalized pixel embeddings (256-d from 1x1 conv by default)
     """
 
-    def __init__(self, in_channels: int, out_channels: int = 256, kernel_size: int = 1):
+    def __init__(self, in_channels: int, out_channels: int = 256, kernel_size: int = 1, upsampling: int = 1):
+        upsampling = nn.UpsamplingBilinear2d(scale_factor=upsampling) if upsampling > 1 else nn.Identity()
         conv2d_1 = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2)
         relu = nn.ReLU(inplace=True)
         conv2d_2 = nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2)
-        super().__init__(conv2d_1, relu, conv2d_2, relu)
+        # TODO decide where to put upsampling
+        super().__init__(upsampling, conv2d_1, relu, conv2d_2, relu)
 
     def forward(self, x):
         x = super().forward(x)
