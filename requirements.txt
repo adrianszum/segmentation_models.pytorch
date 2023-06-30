@@ -1,5 +1,5 @@
 torchvision>=0.3.0
 pretrainedmodels==0.7.4
 efficientnet-pytorch==0.6.3
-timm @ git+git://github.com/rwightman/pytorch-image-models@9a1bd358c7e998799eed88b29842e3c9e5483e34
+timm @ git+https://github.com/rwightman/pytorch-image-models@9a1bd358c7e998799eed88b29842e3c9e5483e34
 einops==0.3.0
